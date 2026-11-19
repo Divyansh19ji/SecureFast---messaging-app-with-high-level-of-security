@@ -1,0 +1,17 @@
+{
+  "name": "SecureFast — Zero-Knowledge Encrypted Chat & Vault",
+  "short_name": "SecureFast",
+  "description": "Intelligent Secure Data Storage with Role-Based Decryption, Key-Derived Anti-OCR Glyphs, and 2 KB Encrypted Chunking.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e151b",
+  "theme_color": "#14534b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#14534b" />
+  <title>SecureFast — Zero-Knowledge Encrypted Chat &amp; RBAC Vault</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- Privacy Shield Overlay (activates when tab loses focus or locked manually) -->
+  <div id="privacyShield" class="privacy-shield-overlay" onclick="unlockShield()">
+    <div class="shield-card">
+      <div style="font-size:2.4rem;">🛡️</div>
+      <h2>Privacy Shield Active</h2>
+      <p>Messages are blurred while this window is unfocused to block shoulder-surfing and screen scrapers.</p>
+      <p style="margin-top:12px;color:#22c59b;font-weight:600;">Click anywhere to resume</p>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <!-- LEFT SIDEBAR: Identity, RBAC Role, Path Creation / Join & QR Invite -->
+    <aside class="sidebar">
+      <div class="brand-bar">
+        <div class="brand-left">
+          <img src="/icon.svg" alt="SecureFast" class="brand-logo" />
+          <div>
+            <div class="brand-title">SecureFast</div>
+            <div class="brand-sub">Python + C11 Zero-Knowledge</div>
+          </div>
+        </div>
+        <div class="row-gap">
+          <button class="icon-btn" id="themeToggle" title="Toggle Dark/Light Theme">☀️</button>
+          <button class="icon-btn" id="shieldBtn" title="Activate Privacy Shield">🛡️</button>
+        </div>
+      </div>
+
+      <!-- Device Identity & Role-Based Decryption Setup -->
+      <section class="sidebar-section">
+        <div class="section-label">
+          <span>1. Device Identity &amp; Role</span>
+          <span id="engineBadge" class="badge badge-engine">C11</span>
+        </div>
+
+        <div class="field">
+          <label for="usernameInput">Display Name</label>
+          <input id="usernameInput" type="text" placeholder="e.g. Divyansh or Friend" maxlength="40" />
+        </div>
+
+        <div class="field">
+          <label for="roleSelect">Role-Based Decryption Clearance</label>
+          <select id="roleSelect">
+            <option value="ADMIN">ADMIN — Full Decryption (Admin + Member + Guest)</option>
+            <option value="MEMBER">MEMBER — Standard Receiver (Member + Guest)</option>
+            <option value="GUEST">GUEST — Restricted Observer (Guest Only)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="relayUrlInput">Path Relay URL (The Path)</label>
+          <input id="relayUrlInput" type="text" placeholder="ws://127.0.0.1:8765" />
+        </div>
+
+        <button class="btn btn-primary" id="saveIdentityBtn">Save Identity &amp; Device Keys</button>
+        <div id="keyInfo" style="margin-top:8px;font-size:0.72rem;color:var(--text-muted);font-family:var(--font-mono);"></div>
+      </section>
+
+      <!-- Path Pairing: Create or Join -->
+      <section class="sidebar-section">
+        <div class="section-label">
+          <span>2. Ephemeral 1:1 Path</span>
+          <span id="connStatusBadge" class="badge badge-guest">Offline</span>
+        </div>
+
+        <button class="btn btn-primary" id="createPathBtn" style="margin-bottom:10px;">
+          ✨ Create New Private Path
+        </button>
+
+        <div class="field">
+          <label for="joinInput">Or Join Friend's Path (Paste Invite Code or Path ID)</label>
+          <div class="row-gap">
+            <input id="joinInput" type="text" placeholder="sf://192.168.x.x:8765/SF-..." />
+            <button class="btn btn-secondary btn-sm" id="joinPathBtn">Join</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live Invite QR & Code (visible when creator or in a path) -->
+      <section class="sidebar-section" id="inviteSection" style="display:none;">
+        <div class="section-label">
+          <span>Share With Friend</span>
+          <span style="color:var(--accent);">1:1 Ephemeral</span>
+        </div>
+        <div class="invite-box">
+          <div style="font-size:0.78rem;color:var(--text-secondary);">Path ID</div>
+          <div id="pathIdDisplay" class="mono-box"></div>
+          <img id="qrImage" class="qr-img" alt="Path QR Code" />
+          <div style="font-size:0.74rem;color:var(--text-secondary);">One-Paste Friend Invite Code</div>
+          <div id="inviteCodeDisplay" class="mono-box"></div>
+          <button class="btn btn-secondary btn-sm" id="copyInviteBtn" style="width:100%;margin-top:6px;">
+            📋 Copy Invite Code
+          </button>
+        </div>
+      </section>
+
+      <!-- Privacy Shield Auto-Blur Toggle -->
+      <section class="sidebar-section" style="border-bottom:none;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+          <input id="autoShieldToggle" type="checkbox" style="width:auto;" checked />
+          Auto-blur Privacy Shield when tab loses focus
+        </label>
+      </section>
+    </aside>
+
+    <!-- MAIN CHAT & ENCRYPTED VAULT AREA -->
+    <main class="main-area">
+      <header class="chat-header">
+        <div class="peer-info">
+          <div id="peerAvatar" class="avatar">SF</div>
+          <div>
+            <div class="peer-name">
+              <span id="peerNameDisplay">No Active Path</span>
+              <span id="peerRoleBadge" class="badge badge-member" style="display:none;"></span>
+            </div>
+            <div id="peerStatusDisplay" class="peer-status">Create or join an ephemeral path to begin</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="safetyBtn" title="Verify 30-digit Safety Number" style="display:none;">
+            🔐 Safety Number
+          </button>
+          <button class="icon-btn" id="relayAuditBtn" title="Inspect Zero-Knowledge Relay Proof">
+            📡 Relay Proof
+          </button>
+          <button class="icon-btn danger" id="destroyPathBtn" title="Destroy Path & Scrub Keys" style="display:none;">
+            🔥 Destroy
+          </button>
+        </div>
+      </header>
+
+      <div class="tab-strip">
+        <button class="tab-btn active" data-tab="chat" id="tabChat">💬 Encrypted Chat</button>
+        <button class="tab-btn" data-tab="vault" id="tabVault">🗄️ Role-Gated Secure Vault</button>
+      </div>
+
+      <section id="messageFeed" class="message-feed">
+        <div class="empty-state">
+          <h3>🔒 Zero-Knowledge Anti-OCR Messaging</h3>
+          <p>
+            Every word is transformed by our <strong>C11 Native Engine</strong> into key-derived secret geometric glyph images,
+            encrypted with <strong>AES-256-GCM</strong>, and streamed as verified <strong>≤ 2 KB chunks</strong>.
+          </p>
+          <div class="steps-list">
+            <div><strong>Step 1:</strong> Set your Display Name &amp; Role on the left and click <em>Save Identity</em>.</div>
+            <div><strong>Step 2:</strong> Click <em>Create New Private Path</em> and share the Invite Code or QR with your friend.</div>
+            <div><strong>Step 3:</strong> Your friend pastes the Invite Code, ECDH P-256 handshake completes, and you compare the 30-digit Safety Number!</div>
+            <div><strong>Step 4:</strong> Click <em>🔍 5 Forms</em> on any message to inspect the live Anti-OCR secret glyphs &amp; 2 KB encrypted chunks.</div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="composer">
+        <div class="composer-controls">
+          <select id="requiredRoleSelect" title="Minimum Role Required to Decrypt">
+            <option value="GUEST">Clearance: GUEST (Anyone on path)</option>
+            <option value="MEMBER" selected>Clearance: MEMBER (Member &amp; Admin)</option>
+            <option value="ADMIN">Clearance: ADMIN ONLY</option>
+          </select>
+
+          <select id="selfDestructSelect" title="Self-Destruct Timer">
+            <option value="0">Burn Timer: Off</option>
+            <option value="60">Burn: 1 min</option>
+            <option value="3600">Burn: 1 hour</option>
+            <option value="86400">Burn: 24 hours</option>
+          </select>
+
+          <input
+            id="vaultTitleInput"
+            class="vault-title-input"
+            type="text"
+            placeholder="Vault Record Title (e.g. API Key)"
+            style="display:none;"
+          />
+        </div>
+
+        <div class="composer-row">
+          <input
+            id="messageInput"
+            type="text"
+            placeholder="Type a confidential message... (converted to secret glyphs + 2 KB AES-GCM chunks)"
+            disabled
+          />
+          <button class="btn btn-primary send-btn" id="sendBtn" disabled>Send 🔒</button>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- MODAL: Safety Number -->
+  <div id="safetyModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>🔐 Verify Safety Number (Anti-MITM)</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('safetyModal')">Close</button>
+      </div>
+      <p style="font-size:0.86rem;color:var(--text-secondary);line-height:1.5;">
+        Compare this 30-digit ECDH P-256 fingerprint with your contact over voice or in person.
+        An exact match cryptographically proves nobody sits in the middle.
+      </p>
+      <div id="safetyNumberDigits" class="safety-grid"></div>
+      <div style="font-size:0.78rem;color:var(--text-muted);text-align:center;">
+        Derived via SHA-256 over sorted SPKI public keys + 16-byte HKDF salt.
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: One Message, Five Forms Inspector -->
+  <div id="inspectorModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>🔍 One Message, Five Forms — Pipeline Inspector</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('inspectorModal')">Close</button>
+      </div>
+      <div id="inspectorBody"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Zero-Knowledge Relay Audit -->
+  <div id="relayModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>📡 Zero-Knowledge Relay Live Proof ("The Path")</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal('relayModal')">Close</button>
+      </div>
+      <div id="relayAuditBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

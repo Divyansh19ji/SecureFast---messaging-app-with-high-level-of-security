@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.env
+securefast/native_bin/bench_c*
+securefast/native_bin/*.lib
+securefast/native_bin/*.pdb
+.zig-cache/
